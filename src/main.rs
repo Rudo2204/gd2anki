@@ -17,64 +17,136 @@ struct Vocab {
     sentence: String,
 }
 
-struct DictKanaFuri {
-    anki_export: String,
-    kana: String,
-    furigana: String,
+struct StemOkurigana {
+    stem: String,
+    conjugation_part: String,
+    okurigana: String,
 }
 
-fn process_dictionary_form(
+fn get_stem_okurigana(original: &str, dictionary_form: &str) -> StemOkurigana {
+    if original == dictionary_form {
+        return StemOkurigana {
+            stem: original.to_string(),
+            conjugation_part: "".to_string(),
+            okurigana: "".to_string(),
+        };
+    } else {
+        let changeset = Changeset::new(original, dictionary_form, "");
+
+        let mut stem = "".to_string();
+        let mut conjugation_part = "".to_string();
+        let mut okurigana = "".to_string();
+
+        for diff in changeset.diffs {
+            if let Difference::Same(text) = diff {
+                stem = text;
+            } else if let Difference::Rem(text) = diff {
+                conjugation_part = text;
+            } else if let Difference::Add(text) = diff {
+                okurigana = text;
+            }
+        }
+
+        return StemOkurigana {
+            stem: stem,
+            conjugation_part: conjugation_part,
+            okurigana: okurigana,
+        };
+    }
+}
+
+struct AnkiReading {
+    // NOTE: adds "る" to verb, "だ" and whatever undesired stuff are removed
+    word: String,
+    furigana: String,
+    kana: String,
+}
+
+fn get_reading_stem(
     original: &str,
     yomi_original: &str,
     dictionary_form: &str,
     word_pos: &str,
-) -> DictKanaFuri {
-    let mut dict_kana = String::new();
-    let mut dict_furigana = String::new();
-
-    let changeset = Changeset::new(original, dictionary_form, "");
-    let mut tmp_furigana_reading = get_furigana_reading(original, yomi_original, false);
-    let mut same_part = String::new();
-    let mut diff_part: String = "".to_string();
-
-    for (_i, x) in changeset.diffs.iter().enumerate() {
-        if let Difference::Same(text) = x {
-            same_part = text.to_string();
-            dict_kana = yomi_original.to_string();
-            dict_furigana = tmp_furigana_reading.to_string();
-        } else if let Difference::Rem(text) = x {
-            diff_part = text.to_string();
-        } else if let Difference::Add(text) = x {
-            // for na-adj they add だ to the dictionary form which we don't want
-            if text == "だ" && word_pos == "形容詞" {
-                if diff_part == "" {
-                    return DictKanaFuri {
-                        anki_export: same_part,
-                        kana: yomi_original.to_string(),
-                        furigana: tmp_furigana_reading.to_string(),
-                    };
-                } else {
-                    // possible case => original 唐突に, yomi: とうとつに, dict: 唐突だ
-                    let mut tmp = yomi_original.to_string();
-                    tmp.pop();
-                    tmp_furigana_reading.pop();
-                    return DictKanaFuri {
-                        anki_export: same_part,
-                        kana: tmp,
-                        furigana: tmp_furigana_reading.to_string(),
-                    };
-                }
-            } else {
-                dict_kana = format!("{}{}", yomi_original, text);
-                dict_furigana = format!("{}{}", tmp_furigana_reading, text);
-            }
-        }
+) -> AnkiReading {
+    if original == dictionary_form {
+        return AnkiReading {
+            word: original.to_string(),
+            furigana: get_furigana_reading(original, yomi_original, false),
+            kana: yomi_original.to_string(),
+        };
     }
 
-    DictKanaFuri {
-        anki_export: dictionary_form.to_string(),
-        kana: dict_kana,
-        furigana: dict_furigana,
+    let tmp = get_stem_okurigana(original, dictionary_form);
+    let mut stem = tmp.stem;
+
+    let conjugation_part = tmp.conjugation_part;
+    let mut okurigana = tmp.okurigana;
+
+    // orig: 痛快, dict: 痛快だ
+    if conjugation_part == "" && okurigana != "" {
+        if okurigana == "だ" && word_pos == "形容詞" {
+            okurigana = "".to_string();
+        }
+        return AnkiReading {
+            word: format!("{}{}", stem, okurigana),
+            furigana: format!(
+                "{}{}",
+                get_furigana_reading(original, yomi_original, false),
+                okurigana
+            ),
+            kana: format!("{}{}", yomi_original.to_string(), okurigana),
+        };
+    } else if conjugation_part != "" && okurigana != "" {
+        // orig: 尋ねて, dict: 尋ねる
+        let yomi_rev = yomi_original.chars().rev().collect::<String>();
+        let conjugation_part_rev = conjugation_part.chars().rev().collect::<String>();
+
+        let re = Regex::new(format!("{}", conjugation_part_rev).as_str()).unwrap();
+        let kana_stem = re.replace(&yomi_rev, "").chars().rev().collect::<String>();
+
+        if okurigana == "だ" && word_pos == "形容詞" {
+            okurigana = "".to_string();
+        }
+
+        return AnkiReading {
+            word: format!("{}{}", stem, okurigana),
+            furigana: format!(
+                "{}{}",
+                get_furigana_reading(&stem, &kana_stem, false),
+                okurigana
+            ),
+            kana: format!("{}{}", kana_stem, okurigana),
+        };
+    } else {
+        //orig: 空白だった, yomi: くうはくだった, dict: 空白だ, pos: 形容詞
+        //stem: 空白だ, conjugation_part: った, okurigana:
+        let yomi_rev = yomi_original.chars().rev().collect::<String>();
+        let orig_rev = original.chars().rev().collect::<String>();
+
+        let changeset = Changeset::new(&yomi_rev, &orig_rev, "");
+        let mut kana_stem = "".to_string();
+        for diff in changeset.diffs {
+            if let Difference::Rem(text) = diff {
+                kana_stem = text.chars().rev().collect::<String>();
+            }
+        }
+
+        let mut dict_santinize = stem.clone();
+        let try_pop = stem.pop();
+
+        if try_pop == Some("だ".parse::<char>().unwrap()) && word_pos == "形容詞" {
+            dict_santinize.pop();
+        }
+
+        return AnkiReading {
+            word: format!("{}{}", dict_santinize, okurigana),
+            furigana: format!(
+                "{}{}",
+                get_furigana_reading(&dict_santinize, &kana_stem, false),
+                okurigana
+            ),
+            kana: format!("{}{}", kana_stem, okurigana),
+        };
     }
 }
 
@@ -85,6 +157,13 @@ fn get_furigana_reading(kanji: &str, yomi: &str, plain_text: bool) -> String {
     for (i, _x) in changeset.diffs.iter().enumerate() {
         if let Difference::Rem(kanji) = &changeset.diffs[i] {
             if let Difference::Add(furigana) = &changeset.diffs[i + 1] {
+                if plain_text {
+                    // THIS DOES NOT WORK WITH ANKI
+                    text += format!("{}[{}]", kanji, furigana).as_str();
+                } else {
+                    text += format!("<ruby><rb>{}<rt>{}</ruby>", kanji, furigana).as_str();
+                }
+            } else if let Difference::Same(furigana) = &changeset.diffs[i + 1] {
                 if plain_text {
                     // THIS DOES NOT WORK WITH ANKI
                     text += format!("{}[{}]", kanji, furigana).as_str();
@@ -221,10 +300,10 @@ fn parse_jumanpp_output(
                 result_counter_text += format!("{:04} {}\n", current_sentence_count, v[2]).as_str();
                 dedupe_vec.push(&v[0]);
 
-                let p = process_dictionary_form(&v[0], &v[1], &v[2], &v[3]);
+                let p = get_reading_stem(&v[0], &v[1], &v[2], &v[3]);
                 saved_words_information.push(WordInformation {
                     original: v[0].to_string(),
-                    dictionary_form: p.anki_export,
+                    dictionary_form: p.word,
                     reading_kana: p.kana,
                     reading_furigana: p.furigana,
                     pos: v[3].to_string(),
