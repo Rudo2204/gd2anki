@@ -3,15 +3,13 @@ use csv::WriterBuilder;
 use difference::{Changeset, Difference};
 use quick_xml::de::from_str;
 use regex::Regex;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::process::Command;
 use xkcd_unreachable::xkcd_unreachable;
-
-//use std::process::Comm
-//use rusqlite::{params, Connection};
 
 #[derive(Debug, Deserialize)]
 struct Vocab {
@@ -337,6 +335,58 @@ struct MiningCard<'a> {
     freq_narou: Option<u32>,
     freq_anime_jdrama: Option<u32>,
     freq_netflix: Option<u32>,
+}
+
+fn get_freq_ja_2016(file_path: &str, word: &str) -> Option<u32> {
+    let conn = Connection::open(file_path).expect("could not open database file");
+    let query_html_string: rusqlite::Result<String> = conn.query_row_and_then(
+        "SELECT paraphrase FROM mdx WHERE entry=?",
+        params![word],
+        |row| row.get(0),
+    );
+
+    let re = Regex::new(r#"<div class="ce_js">(\d+)"#).unwrap();
+    match query_html_string {
+        Ok(text) => {
+            let freq = re
+                .captures(&text)
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .as_str()
+                .parse::<u32>()
+                .unwrap();
+            return Some(freq);
+        }
+        Err(_e) => {
+            let mut tmp = word.to_string();
+            // for whatever insane reason, the dict sometime prefers stem form
+            tmp.pop();
+
+            let query2_html_string: rusqlite::Result<String> = conn.query_row_and_then(
+                "SELECT paraphrase FROM mdx WHERE entry=?",
+                params![tmp],
+                |row| row.get(0),
+            );
+
+            match query2_html_string {
+                Ok(text) => {
+                    let freq = re
+                        .captures(&text)
+                        .unwrap()
+                        .get(1)
+                        .unwrap()
+                        .as_str()
+                        .parse::<u32>()
+                        .unwrap();
+                    return Some(freq);
+                }
+                Err(_e2) => {
+                    return None;
+                }
+            }
+        }
+    }
 }
 
 fn main() {
