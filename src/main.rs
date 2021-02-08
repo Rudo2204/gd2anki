@@ -19,6 +19,47 @@ struct Vocab {
     sentence: String,
 }
 
+struct DictKanaFuri {
+    anki_export: String,
+    kana: String,
+    furigana: String,
+}
+
+fn process_dictionary_form(
+    original: &str,
+    yomi_original: &str,
+    dictionary_form: &str,
+    word_pos: &str,
+) -> DictKanaFuri {
+    let mut dict_kana = String::new();
+    let mut dict_furigana = String::new();
+
+    let changeset = Changeset::new(original, dictionary_form, "");
+    let tmp_furigana_reading = get_furigana_reading(original, yomi_original, false);
+
+    for (_i, x) in changeset.diffs.iter().enumerate() {
+        if let Difference::Add(text) = x {
+            // for na-adj they add だ to the dictionary form which we don't want
+            if text == "だ" && word_pos == "形容詞" {
+                return DictKanaFuri {
+                    anki_export: original.to_string(),
+                    kana: yomi_original.to_string(),
+                    furigana: tmp_furigana_reading.to_string(),
+                };
+            } else {
+                dict_kana += format!("{}{}", yomi_original, text).as_str();
+                dict_furigana += format!("{}{}", tmp_furigana_reading, text).as_str();
+            }
+        }
+    }
+
+    DictKanaFuri {
+        anki_export: dictionary_form.to_string(),
+        kana: dict_kana,
+        furigana: dict_furigana,
+    }
+}
+
 fn get_furigana_reading(kanji: &str, yomi: &str, plain_text: bool) -> String {
     let mut text = String::new();
 
@@ -89,8 +130,9 @@ struct AnkiExport {
 #[derive(Debug)]
 struct WordInformation {
     original: String,
-    reading_kana: String,
-    reading_furigana: String,
+    dictionary_form: String,
+    reading_kana: String,     // for dictionary form, not original
+    reading_furigana: String, // for dictionary form, not original
     pos: String,
     pos_information: String,
 }
@@ -164,10 +206,13 @@ fn parse_jumanpp_output(
 
                 highlight_text = v[0].to_string();
                 dedupe_vec.push(&v[0]);
+
+                let p = process_dictionary_form(&v[0], &v[1], &v[2], &v[3]);
                 saved_words_information.push(WordInformation {
                     original: v[0].to_string(),
-                    reading_kana: v[1].to_string(),
-                    reading_furigana: get_furigana_reading(&v[0], &v[1], false),
+                    dictionary_form: p.anki_export,
+                    reading_kana: p.kana,
+                    reading_furigana: p.furigana,
                     pos: v[3].to_string(),
                     pos_information: v[5].to_string(),
                 });
@@ -320,8 +365,8 @@ fn main() {
         let bold_sentence_furigana =
             re_bold_furigana.replace_all(&i.sentence_furigana, "<b>$kanji</b>");
         wtr.serialize(MiningCard {
-            vocab_kanji: &i.word.original,
-            vocab_kanji_migaku: &i.word.original,
+            vocab_kanji: &i.word.dictionary_form,
+            vocab_kanji_migaku: &i.word.dictionary_form,
             vocab_furigana: &i.word.reading_furigana,
             vocab_kana: &i.word.reading_kana,
             vocab_def_en: None,
