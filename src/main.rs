@@ -35,20 +35,40 @@ fn process_dictionary_form(
     let mut dict_furigana = String::new();
 
     let changeset = Changeset::new(original, dictionary_form, "");
-    let tmp_furigana_reading = get_furigana_reading(original, yomi_original, false);
+    let mut tmp_furigana_reading = get_furigana_reading(original, yomi_original, false);
+    let mut same_part = String::new();
+    let mut diff_part: String = "".to_string();
 
     for (_i, x) in changeset.diffs.iter().enumerate() {
-        if let Difference::Add(text) = x {
+        if let Difference::Same(text) = x {
+            same_part = text.to_string();
+            dict_kana = yomi_original.to_string();
+            dict_furigana = tmp_furigana_reading.to_string();
+        } else if let Difference::Rem(text) = x {
+            diff_part = text.to_string();
+        } else if let Difference::Add(text) = x {
             // for na-adj they add だ to the dictionary form which we don't want
             if text == "だ" && word_pos == "形容詞" {
-                return DictKanaFuri {
-                    anki_export: original.to_string(),
-                    kana: yomi_original.to_string(),
-                    furigana: tmp_furigana_reading.to_string(),
-                };
+                if diff_part == "" {
+                    return DictKanaFuri {
+                        anki_export: same_part,
+                        kana: yomi_original.to_string(),
+                        furigana: tmp_furigana_reading.to_string(),
+                    };
+                } else {
+                    // possible case => original 唐突に, yomi: とうとつに, dict: 唐突だ
+                    let mut tmp = yomi_original.to_string();
+                    tmp.pop();
+                    tmp_furigana_reading.pop();
+                    return DictKanaFuri {
+                        anki_export: same_part,
+                        kana: tmp,
+                        furigana: tmp_furigana_reading.to_string(),
+                    };
+                }
             } else {
-                dict_kana += format!("{}{}", yomi_original, text).as_str();
-                dict_furigana += format!("{}{}", tmp_furigana_reading, text).as_str();
+                dict_kana = format!("{}{}", yomi_original, text);
+                dict_furigana = format!("{}{}", tmp_furigana_reading, text);
             }
         }
     }
@@ -194,8 +214,6 @@ fn parse_jumanpp_output(
             )
             .as_str();
 
-            let mut highlight_text = String::new();
-
             if tmp_re.is_match(&words_string) && !dedupe_vec.contains(&v[0]) {
                 debug_text += format!(
                     "GOT THROUGH => sentence_count: {:04}, v[0]: {}, current regex: {}",
@@ -203,8 +221,6 @@ fn parse_jumanpp_output(
                 )
                 .as_str();
                 result_counter_text += format!("{:04} {}\n", current_sentence_count, v[2]).as_str();
-
-                highlight_text = v[0].to_string();
                 dedupe_vec.push(&v[0]);
 
                 let p = process_dictionary_form(&v[0], &v[1], &v[2], &v[3]);
@@ -378,7 +394,7 @@ fn main() {
             picture: None,
             sentence: &bold_sentence,
             sentence_migaku: &bold_sentence,
-            sentence_furigana: &i.sentence_furigana,
+            sentence_furigana: &bold_sentence_furigana,
             sentence_def: None,
             sentence_audio: None,
             hint: None,
@@ -388,7 +404,8 @@ fn main() {
             freq_narou: None,
             freq_anime_jdrama: None,
             freq_netflix: None,
-        });
+        })
+        .expect("could not serialize");
     }
     let data = String::from_utf8(wtr.into_inner().expect("could not wrap into inner"))
         .expect("could not convert to utf8");
