@@ -1,15 +1,22 @@
 use colored::Colorize;
-use csv::WriterBuilder;
+use csv::{ReaderBuilder, WriterBuilder};
 use difference::{Changeset, Difference};
 use quick_xml::de::from_str;
 use regex::Regex;
-use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::process::Command;
 use xkcd_unreachable::xkcd_unreachable;
+
+mod get_freq;
+use get_freq::get_freq_2016;
+
+mod make_db;
+use make_db::parse_wadoku_xml;
+
+mod utils;
 
 #[derive(Debug, Deserialize)]
 struct Vocab {
