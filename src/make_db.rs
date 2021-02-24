@@ -1,4 +1,4 @@
-use csv::{ReaderBuilder, WriterBuilder};
+use csv::ReaderBuilder;
 use regex::Regex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -132,6 +132,80 @@ fn make_freq_2016_ja(file_path: &str, db_file_output: &str) {
     )
     .expect("could not create index");
     tx.commit().unwrap();
+}
+
+//#[derive(Debug, Serialize, Deserialize)]
+//struct FullAccentEntry {
+//    nid: u32,
+//    id: u32,
+//    wav_name: String,
+//    k_fld: u32,
+//    act: String,
+//    midashigo: String,
+//    nhk: String,
+//    kanji_expr: String,
+//    nhk_expr: String,
+//    number_chars: u32,
+//    nopronouncepos: Option<u32>,
+//    nasalsoundpos: Option<u32>,
+//    majiri: String,
+//    kaisi: u32,
+//    k_wav: String,
+//    midashigo1: String,
+//    akusentosuu: u32,
+//    bunshou: u32,
+//    ac: String,
+//}
+
+//https://github.com/rusqlite/rusqlite/issues/347
+//make_nhk_db("database/ACCDB_unicode.csv", "database/nhk.db");
+pub fn make_nhk_db(csv_file_path: &str, db_output_path: &str) {
+    let conn = Connection::open(db_output_path).expect("could not open database file");
+    rusqlite::vtab::csvtab::load_module(&conn).expect("could not load csvtab module");
+    conn.execute(
+        format!(
+            "CREATE VIRTUAL TABLE nhk_vtab USING csv(filename='{}',
+        schema='CREATE TABLE nhk (
+            nid integer primary key,
+            id integer not null,
+            wav_name text not null,
+            k_fld integer not null,
+            act text not null,
+            midashigo text not null,
+            nhk text not null,
+            kanji_expr text not null,
+            nhk_expr text not null,
+            number_chars interger not null,
+            nopronouncepos interger,
+            nasalsoundpos interger,
+            majiri text not null,
+            kaisi integer not null,
+            k_wav text not null,
+            midashigo1 text not null,
+            akusentosuu integer not null,
+            bunshou interger not null,
+            ac text not null
+            )')",
+            csv_file_path
+        )
+        .as_str(),
+        rusqlite::NO_PARAMS,
+    )
+    .expect("could not create virtual table using csv module");
+
+    conn.execute(
+        "CREATE TABLE nhk AS SELECT * FROM nhk_vtab",
+        rusqlite::NO_PARAMS,
+    )
+    .expect("could not create nhk table from virtual table");
+
+    conn.execute("DROP TABLE IF EXISTS nhk_vtab", rusqlite::NO_PARAMS)
+        .expect("could not drop nhk_vtab");
+    conn.execute(
+        "CREATE INDEX idx_kanji_hiragana ON nhk(nhk, kanji_expr)",
+        rusqlite::NO_PARAMS,
+    )
+    .expect("could not create index on nhk table");
 }
 
 #[derive(Debug, Deserialize)]

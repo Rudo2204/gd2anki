@@ -14,7 +14,7 @@ quick-xml = { version = "0.21.0", features = ["serialize"] }
 difference = "2.0.0"
 serde = { version = "1.0", features = ["derive"] }
 regex = "1"
-rusqlite = "0.24.2"
+rusqlite = { version = "0.24.2", features = ["vtab", "csvtab"]}
 colored = "2.0.0"
 csv = "1.1.5"
 #log = "0.4"

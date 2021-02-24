@@ -264,9 +264,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5f38ee71cbab2c827ec0ac24e76f82eca723cee92c509a65f67dee393c25112"
 dependencies = [
  "bitflags",
+ "csv",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
+ "lazy_static",
  "libsqlite3-sys",
  "memchr",
  "smallvec",
