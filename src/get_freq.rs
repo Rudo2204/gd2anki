@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection};
 
+//let freq = get_freq_narou("database/freq.db", &i.word.dictionary_form, &i.word.reading_kana);
 pub fn get_freq_narou(file_path: &str, word: &str, reading: &str) -> Option<u32> {
     let conn = Connection::open(file_path).expect("could not open database file");
     let query_result: rusqlite::Result<u32> = conn.query_row_and_then(
@@ -33,6 +34,8 @@ pub fn get_freq_narou(file_path: &str, word: &str, reading: &str) -> Option<u32>
     }
 }
 
+//let freq = get_freq_2016("database/freq.db", &i.word.dictionary_form, "netflix");
+//let freq = get_freq_2016("database/freq.db", &i.word.dictionary_form, "anime_jdrama");
 pub fn get_freq_anime_jdrama(file_path: &str, word: &str, table_name: &str) -> Option<u32> {
     let conn = Connection::open(file_path).expect("could not open database file");
     let query_result: rusqlite::Result<u32> = conn.query_row_and_then(
@@ -50,6 +53,7 @@ pub fn get_freq_anime_jdrama(file_path: &str, word: &str, table_name: &str) -> O
     }
 }
 
+//let freq = get_freq_2016("database/freq.db", &i.word.dictionary_form);
 pub fn get_freq_2016(file_path: &str, word: &str) -> Option<u32> {
     let conn = Connection::open(file_path).expect("could not open database file");
     let query_result: rusqlite::Result<u32> = conn.query_row_and_then(
