@@ -14,8 +14,8 @@ fn mora_len(hiragana_word: &str) -> usize {
     len
 }
 
-fn split_to_mora(hiranga_word: &str) -> Vec<String> {
-    let v: Vec<char> = hiranga_word.chars().collect();
+fn split_to_mora(hiragana_word: &str) -> Vec<String> {
+    let v: Vec<char> = hiragana_word.chars().collect();
     let mut ret_vec: Vec<String> = Vec::new();
     for (i, x) in v.clone().iter().enumerate() {
         if is_normal_hiragana(x) {
