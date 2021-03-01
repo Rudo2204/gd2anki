@@ -1,4 +1,8 @@
-const SMALL_HIRAGANA: [char; 10] = ['ゃ', 'ゅ', 'ょ', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ゎ', 'っ'];
+use regex::Regex;
+use std::convert::TryInto;
+
+// not sure what to do about ゎ (small wa)
+const SMALL_HIRAGANA: [char; 8] = ['ゃ', 'ゅ', 'ょ', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ'];
 
 fn is_normal_hiragana(c: &char) -> bool {
     !SMALL_HIRAGANA.contains(&c)
@@ -35,11 +39,15 @@ mod tests {
 
     #[test]
     fn test_small_hiragana_filter() {
+        assert_eq!(is_normal_hiragana(&'ぁ'), false);
+        assert_eq!(is_normal_hiragana(&'ゅ'), false);
         assert_eq!(is_normal_hiragana(&'ゃ'), false);
-        assert_eq!(is_normal_hiragana(&'ゎ'), false);
-        assert_eq!(is_normal_hiragana(&'っ'), false);
+        assert_eq!(is_normal_hiragana(&'っ'), true);
+        assert_eq!(is_normal_hiragana(&'し'), true);
+        assert_eq!(is_normal_hiragana(&'あ'), true);
         assert_eq!(is_normal_hiragana(&'わ'), true);
         assert_eq!(is_normal_hiragana(&'つ'), true);
+        assert_eq!(is_normal_hiragana(&'ゎ'), true);
     }
 
     #[test]
