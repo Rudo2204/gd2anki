@@ -17,6 +17,7 @@ regex = "1"
 rusqlite = { version = "0.24.2", features = ["vtab", "csvtab"]}
 colored = "2.0.0"
 csv = "1.1.5"
+wana_kana = "2.0.1"
 #log = "0.4"
 #fern = { version = "0.6", features = ["colored"] }
 #clap = "2.33"

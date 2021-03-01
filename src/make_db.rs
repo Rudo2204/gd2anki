@@ -239,7 +239,7 @@ struct WadokuEntryReading {
     #[serde(rename = "hira")]
     hiragana_reading: String,
     #[serde(rename = "accent")]
-    accents: Option<Vec<u8>>,
+    accents: Option<Vec<u8>>, // TODO: Change to String
 }
 
 pub fn parse_wadoku_xml(file_path: &str) {
