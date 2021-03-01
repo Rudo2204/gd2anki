@@ -33,6 +33,10 @@ fn split_to_mora(hiragana_word: &str) -> Vec<String> {
     ret_vec
 }
 
+fn hiragana_count_char(hiragana: &str) -> usize {
+    hiragana.chars().collect::<Vec<char>>().len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
